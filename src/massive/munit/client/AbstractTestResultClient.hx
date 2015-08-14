@@ -229,7 +229,7 @@ class AbstractTestResultClient implements IAdvancedTestResultClient, implements 
 		
 		printOverallResult(finalResult);
 		
-		haxe.Log.trace = originalTrace;
+		if (originalTrace != null) haxe.Log.trace = originalTrace;
 		if (completionHandler != null) completionHandler(this); 
 		return output;
 	}

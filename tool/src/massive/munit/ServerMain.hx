@@ -60,7 +60,11 @@ class ServerMain
 	{
 		try 
 		{
-			processData();
+			trace("New request");
+			//processData();
+			var data = neko.Web.getPostData();
+			trace("got " + data.length);
+			neko.Web.flush();
 		}
 		catch(e:Dynamic)
 		{
@@ -74,6 +78,10 @@ class ServerMain
 	{
 		var client:String = neko.Web.getClientHeader(HTTPClient.CLIENT_HEADER_KEY);
 		var platform:String = neko.Web.getClientHeader(HTTPClient.PLATFORM_HEADER_KEY);
+		var part:String = neko.Web.getClientHeader(HTTPClient.MULTIPART_HEADER_KEY);
+		
+		trace("Process client: " + client + " platform: " + platform + " part:" + part);
+		return;
 		
 		tmpDir = File.current.resolveDirectory("tmp", true);
 		tmpDir.createDirectory();
@@ -92,7 +100,7 @@ class ServerMain
 
 		if (data == null)
 			data = neko.Web.getPostData();
-
+		
 		if (data == null)
 		{
 			Sys.print("Error: Invalid content sent to server: \n" + data);
@@ -106,11 +114,17 @@ class ServerMain
 		var platformDir:File = clientDir.resolveDirectory(platform, true);
 		platformDir.createDirectory();
 
+		if (part != null) 
+		{
+			data = handlePartial(platformDir, part, data);
+			if (data == null) return; // incomplete content
+		}
+
 		var result:String = ERROR;
 		switch(client)
 		{
-			case JUnitReportClient.DEFAULT_ID: 
-				result = writeJUnitReportData(data, platformDir);
+			case JUnitReportClient.DEFAULT_ID:
+				result = PASSED; //writeJUnitReportData(data, platformDir);
 			case PrintClient.DEFAULT_ID: 
 				result = writePrintData(data, platformDir);
 			case SummaryReportClient.DEFAULT_ID:
@@ -121,6 +135,26 @@ class ServerMain
 		
 		var results:String = "Tests " + result + " under " + platform + " using " + client + " client\n";
 		recordResult(results);
+	}
+	
+	function handlePartial(platformDir:File, part:String, data:String) 
+	{
+		//var buffer = platformDir.resolveFile("buffer.txt", true);
+		//trace("Buffering " + buffer.path);
+		if (part == HTTPClient.MULTIPART_EOF) 
+		{
+			trace("Complete data " + data.length);
+			//data = buffer.readString() + data;
+			//buffer.deleteFile();
+			return data;
+		}
+		else 
+		{
+			trace("Append data and return");
+			Sys.println("Part received " + data.length);
+			//buffer.writeString(buffer.readString() + data);
+			return null;
+		}
 	}
 	
 	private function recordResult(result:String)
@@ -156,7 +190,7 @@ class ServerMain
 	
 	private function writeJUnitReportData(data:String, dir:File):String
 	{
-		var xml:Xml = Xml.parse(data);		
+		var xml:Xml = tryParseXml(data); 
 		var suites = xml.firstChild().elementsNamed("testsuite");
 			
 		var rawDir:File = dir.resolveDirectory("xml", true);
@@ -195,6 +229,19 @@ class ServerMain
 			result = ERROR;
 
 		return result;
+	}
+	
+	function tryParseXml(data:String) 
+	{
+		try 
+		{
+			return Xml.parse(data);
+		}
+		catch (err:Dynamic)
+		{
+			recordResult("Xml results parsing failed: " + err);
+			return Xml.parse("<testsuites></testsuites>");
+		}
 	}
 	
 	//------------------------ Write Print Data

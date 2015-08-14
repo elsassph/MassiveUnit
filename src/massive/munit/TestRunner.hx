@@ -260,7 +260,10 @@ class TestRunner implements IAsyncDelegateObserver
         if (!asyncPending)
         {
             var time:Float = Timer.stamp() - startTime;
-            for (client in clients)
+			
+			var temp = clients.copy();
+			temp.reverse();
+            for (client in temp)
             {
                 if(Std.is(client, IAdvancedTestResultClient))
                 {
@@ -374,6 +377,8 @@ class TestRunner implements IAsyncDelegateObserver
 
     private function clientCompletionHandler(resultClient:ITestResultClient):Void
     {
+		trace("completionHandler " + resultClient.id + ": " + (clientCompleteCount+1) + "/" + clients.length);
+		
         if (++clientCompleteCount == clients.length)
         {
             if (completionHandler != null)

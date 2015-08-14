@@ -62,10 +62,35 @@ class HTTPClient implements IAdvancedTestResultClient
 	 */
 	@:extern public inline static var PLATFORM_HEADER_KEY:String = "munit-platformId";
 
+	/**
+	 * HTTP header key. Contains multipart information ("partial" or "eof").
+	 */
+	@:extern public inline static var MULTIPART_HEADER_KEY:String = "munit-multipart";
+	@:extern public inline static var MULTIPART_PARTIAL:String = "partial";
+	@:extern public inline static var MULTIPART_EOF:String = "eof";
+	
+	/**
+	 * Multipart block size
+	 */
+	private static inline var PARTIAL_SIZE:Int = 500;
+
 	/* Global sequental (FIFO) http request queue */
 	private static var queue:Array<URLRequest> = [];
 	private static var responsePending:Bool = false;
 
+	/**
+	 * Returns wether requests are still queued
+	 */
+	#if haxe3
+	static public var hasQueue(get, never):Bool;
+	#else
+	static public var hasQueue(get_hasQueue, never):Bool;
+	#end
+	static private inline function get_hasQueue() 
+	{ 
+		return responsePending || queue.length > 0; 
+	}
+	
 	/**
 	 * The unique identifier for the client.
 	 */
@@ -177,15 +202,38 @@ class HTTPClient implements IAdvancedTestResultClient
 	public function reportFinalStatistics(testCount:Int, passCount:Int, failCount:Int, errorCount:Int, ignoreCount:Int, time:Float):Dynamic
 	{
 		var result = client.reportFinalStatistics(testCount, passCount, failCount, errorCount, ignoreCount, time);
+		
+		#if js
+		trace("POSTING RESULTS OF " + client.id + " - queued? " + queueRequest);
+		if (Std.is(result, String)) 
+		{
+			var data:String = result;
+			var size = data.length;
+			if (size > PARTIAL_SIZE)
+			{
+				var pos = 0;
+				while (pos < size)
+				{
+					var part = pos + PARTIAL_SIZE >= size ? MULTIPART_EOF : MULTIPART_PARTIAL;
+					trace("PART " + part + " " + pos);
+					sendResult(data.substr(0, PARTIAL_SIZE), part);
+					pos += PARTIAL_SIZE;
+				}
+				return result;
+			}
+		}
+		#end
+		
 		sendResult(result);
 		return result;
 	}
 
-	private function sendResult(result):Void
+	private function sendResult(result, ?part:String):Void
 	{
 		request = new URLRequest(url);
 		request.setHeader(CLIENT_HEADER_KEY, client.id);
 		request.setHeader(PLATFORM_HEADER_KEY, platform());
+		if (part != null) request.setHeader(MULTIPART_HEADER_KEY, part);
 		request.onData = onData;
 		request.onError = onError;
 		request.data = result;
@@ -219,7 +267,11 @@ class HTTPClient implements IAdvancedTestResultClient
 		{
 			responsePending = false;
 			dispatchNextRequest();
+			if (responsePending) return; // it's not complete yet
 		}
+		#if js
+		untyped console.log("HTTClient " + client.id + " is complete");
+		#end
 		if (completionHandler != null)
 			completionHandler(this); 
 	}
@@ -230,7 +282,11 @@ class HTTPClient implements IAdvancedTestResultClient
 		{
 			responsePending = false;
 			dispatchNextRequest();
+			if (responsePending) return; // it's not complete yet
 		}
+		#if js
+		trace("HTTClient " + client.id + " is complete");
+		#end
 		if (completionHandler != null) 
 			completionHandler(this); 
 	}

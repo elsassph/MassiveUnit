@@ -268,7 +268,13 @@ class RichPrintClient extends PrintClientBase
 	override function printOverallResult(result:Bool)
 	{
 		super.printOverallResult(result);
-		external.setResult(result);
+		trySetResult(result);
+	}
+	
+	function trySetResult(result:Bool) 
+	{
+		if (HTTPClient.hasQueue) Timer.delay(function() { trySetResult(result); }, 100);
+		else external.setResult(result);
 	}
 
 	function customTrace(value, ?info:haxe.PosInfos)

@@ -187,10 +187,12 @@ class JUnitReportClient implements IAdvancedTestResultClient
 	 */
 	public function reportFinalStatistics(testCount:Int, passCount:Int, failCount:Int, errorCount:Int, ignoreCount:Int, time:Float):Dynamic
 	{
-
 		xml.add("</testsuites>");
 		if (completionHandler != null) completionHandler(this);
-		return xml.toString();
+		
+		var content = xml.toString();
+		content = content.substr(0, 6000);
+		return content;
 	}
 	
 	private function endTestSuite():Void

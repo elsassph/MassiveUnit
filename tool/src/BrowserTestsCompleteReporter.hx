@@ -19,6 +19,7 @@ import massive.munit.client.HTTPClient;
 	
 	public static function sendReport(onData, onError)
 	{
+		untyped console.info("SENDING REPORT");
 		var httpRequest = new Http(HTTPClient.DEFAULT_SERVER_URL);
 		httpRequest.setHeader(HTTPClient.CLIENT_HEADER_KEY, CLIENT_RUNNER_HOST);
 		httpRequest.setHeader(HTTPClient.PLATFORM_HEADER_KEY, "-");
